@@ -9,7 +9,7 @@ charset-normalizer==3.4.4
 click==8.3.1
 cryptography==46.0.3
 dotenv==0.9.9
-fastapi==0.125.0
+fastapi==0.127.0
 firebase_admin==7.1.0
 gcloud==0.18.3
 google-api-core==2.28.1
@@ -55,4 +55,4 @@ starlette==0.50.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==1.26.20
-uvicorn==0.38.0
+uvicorn==0.40.0

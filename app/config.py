@@ -1,3 +1,5 @@
+#app/config.py
+
 import os
 from dotenv import load_dotenv
 
@@ -13,4 +15,3 @@ firebaseConfig = {
     "appId": os.getenv("FIREBASE_APP_ID"),
     "measurementId": os.getenv("FIREBASE_MEASUREMENT_ID")
 }
-
