@@ -33,3 +33,15 @@ class UpdateMenuItemSchema(BaseModel):
   price: Optional[float] = None
   description: Optional[str] = None
   is_available: Optional[bool] = None
+
+
+class ExtractedMenuItem(BaseModel):
+  name: str = Field(..., description="The name of the food item")
+  price: Optional[float] = Field(None, description="The price of the item")
+  description: str = Field("", description="Short AI-generated description (6–7 words)")
+
+
+class MenuScanResponse(BaseModel):
+    detected_items: List[ExtractedMenuItem]
+    count: int
+    message: str = "Scan complete. Please verify items before saving."

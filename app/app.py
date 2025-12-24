@@ -1,13 +1,14 @@
 # app/app.py
 
-from fastapi import FastAPI, Security
+from fastapi import FastAPI, Security, File, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from .schema import (
   LoginSchema,
   SignUpSchema,
   MenuSchema,
   StaffSignUpSchema,
-  UpdateMenuItemSchema
+  UpdateMenuItemSchema,
+  MenuScanResponse
 )
 from .auth import (
   auth_signup_users,
@@ -18,6 +19,7 @@ from .auth import (
 from .staff import (
   upload_menu,
   get_menu,
+  scan_menu_image,
   update_menu_item,
   delete_menu_item
 )
@@ -62,6 +64,14 @@ async def get_staff_menu(
 ):
     token = credentials.credentials
     return await get_menu(token)
+
+@app.post("/staff/menu/scan-image", tags=["staff"], response_model=MenuScanResponse)
+async def scan_menu_endpoint(
+    file: UploadFile = File(...),
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    token = credentials.credentials
+    return await scan_menu_image(file, token)
 
 @app.patch("/staff/menu/{item_id}", tags=["staff"])
 async def update_menu_item_endpoint(
