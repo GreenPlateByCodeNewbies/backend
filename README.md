@@ -115,7 +115,7 @@ The API will be available at `http://localhost:8000`
 - **Body:**
   ```json
   {
-    "email": "student@college.edu",
+    "email": "student@college.edu.in",
     "password": "password123",
     "confirm_password": "password123"
   }
@@ -128,7 +128,7 @@ The API will be available at `http://localhost:8000`
 - **Body:**
   ```json
   {
-    "email": "student@college.edu",
+    "email": "student@college.edu.in",
     "password": "password123"
   }
   ```
@@ -139,7 +139,7 @@ The API will be available at `http://localhost:8000`
 - **Body:**
   ```json
   {
-    "email": "staff@college.edu",
+    "email": "staff@college.edu.in",
     "password": "password123",
     "confirm_password": "password123",
     "stall_id": "stall-001"
@@ -153,7 +153,7 @@ The API will be available at `http://localhost:8000`
 - **Body:**
   ```json
   {
-    "email": "staff@college.edu",
+    "email": "staff@college.edu.in",
     "password": "password123"
   }
   ```
