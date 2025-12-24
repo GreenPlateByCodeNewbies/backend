@@ -18,35 +18,30 @@ from .auth import (
 from .staff import (
   upload_menu,
   get_menu,
-  update_menu_item
+  update_menu_item,
+  delete_menu_item
 )
 
 app = FastAPI()
-
 security = HTTPBearer()
-
 
 @app.post('/signup/users', tags=["users"])
 async def signup_users(user_data: SignUpSchema):
     return await auth_signup_users(user_data)
 
-
 @app.post('/login/users', tags=["users"])
 async def login_users(user_data: LoginSchema):
     return await auth_login_users(user_data)
-
 
 @app.post('/signup/staffs', tags=["staff"])
 async def signup_staffs(user_data: StaffSignUpSchema):
     return await auth_signup_staffs(user_data)
 
-
 @app.post('/login/staffs', tags=["staff"])
 async def login_staffs(user_data: LoginSchema):
     return await auth_login_staffs(user_data)
 
-
-@app.post("/staff/upload_menu", tags=["staff"])
+@app.post("/staff/menu", tags=["staff"])
 async def upload_menu_endpoint(
     menu_data: MenuSchema,
     credentials: HTTPAuthorizationCredentials = Security(security)
@@ -70,5 +65,15 @@ async def update_menu_item_endpoint(
     return await update_menu_item(
         item_id,
         update_data,
+        credentials.credentials
+    )
+
+@app.delete("/staff/menu/{item_id}", tags=["staff"])
+async def delete_menu_item_endpoint(
+    item_id: str,
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    return await delete_menu_item(
+        item_id,
         credentials.credentials
     )

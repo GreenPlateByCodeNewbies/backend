@@ -6,12 +6,10 @@ from starlette import status
 from firebase_admin import auth, firestore
 from .firebase_init import db, firebase
 
-
 def _validate_passwords(password: str, confirm_password: str):
     if password != confirm_password:
         return False, "Passwords do not match"
     return True, ""
-
 
 def _get_college_by_domain(email: str):
     try:
@@ -31,12 +29,10 @@ def _get_college_by_domain(email: str):
         print(f"College lookup error: {e}")
         return None, None
 
-
 def _create_response(status_code: int, message: str, **kwargs):
     content = {"message": message}
     content.update(kwargs)
     return JSONResponse(status_code=status_code, content=content)
-
 
 async def auth_signup_users(user_data: SignUpSchema):
     email = user_data.email
@@ -74,7 +70,6 @@ async def auth_signup_users(user_data: SignUpSchema):
     except Exception as e:
         return _create_response(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
 
-
 async def auth_signup_staffs(user_data: StaffSignUpSchema):
     email = user_data.email
     password = user_data.password
@@ -111,7 +106,6 @@ async def auth_signup_staffs(user_data: StaffSignUpSchema):
     except Exception as e:
         return _create_response(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
 
-
 async def auth_login_users(user_data: LoginSchema):
     email = user_data.email
     password = user_data.password
@@ -132,7 +126,6 @@ async def auth_login_users(user_data: LoginSchema):
         )
     except Exception as e:
         return _create_response(status.HTTP_401_UNAUTHORIZED, str(e))
-
 
 async def auth_login_staffs(user_data: LoginSchema):
     email = user_data.email
