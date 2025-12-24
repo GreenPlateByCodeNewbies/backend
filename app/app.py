@@ -9,7 +9,7 @@ from .auth import (
     auth_login_staffs,
     auth_login_users
 )
-from .staff import upload_menu
+from .staff import upload_menu, get_menu
 
 app = FastAPI()
 
@@ -43,3 +43,10 @@ async def upload_menu_endpoint(
 ):
     token = credentials.credentials
     return await upload_menu(menu_data, token)
+
+@app.get("/staff/menu", tags=["staff"])
+async def get_staff_menu(
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    token = credentials.credentials
+    return await get_menu(token)

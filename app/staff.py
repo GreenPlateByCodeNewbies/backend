@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from starlette import status
 from .firebase_init import db
 from firebase_admin import auth, firestore
+from datetime import datetime
 
 
 async def get_staff_details(id_token: str):
@@ -28,6 +29,12 @@ async def get_staff_details(id_token: str):
         print(f"Auth Error: {e}")
         return None, None
 
+def serialize_firestore_data(data: dict):
+    for key, value in data.items():
+        # Firestore timestamps & Python datetimes
+        if isinstance(value, datetime):
+            data[key] = value.isoformat()
+    return data
 
 async def upload_menu(menu_data: MenuSchema, id_token: str):
     try:
@@ -108,3 +115,59 @@ async def upload_menu(menu_data: MenuSchema, id_token: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"message": str(e)}
         )
+
+
+async def get_menu(id_token: str):
+  try:
+    staff_data, staff_uid = await get_staff_details(id_token)
+
+    if not staff_data:
+      return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"message": "Invalid or expired token."}
+      )
+
+    staff_college_id = staff_data.get("college_id")
+    staff_stall_id = staff_data.get("stall_id")
+
+    stall_ref = (
+      db.collection("colleges")
+      .document(staff_college_id)
+      .collection("stalls")
+      .document(staff_stall_id)
+    )
+
+    if not stall_ref.get().exists:
+      return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"message": "Stall not found. Contact admin."}
+      )
+
+    menu_items_ref = (
+      stall_ref
+      .collection("menu_items")
+      .order_by("created_at")
+    )
+
+    menu_items_docs = menu_items_ref.stream()
+
+    menu_items = []
+    for doc in menu_items_docs:
+      item = doc.to_dict()
+      item["item_id"] = doc.id
+      item = serialize_firestore_data(item)
+      menu_items.append(item)
+
+    return JSONResponse(
+      status_code=status.HTTP_200_OK,
+      content={
+        "stall_id": staff_stall_id,
+        "menu_items": menu_items
+      }
+    )
+
+  except Exception as e:
+    return JSONResponse(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      content={"message": str(e)}
+    )
