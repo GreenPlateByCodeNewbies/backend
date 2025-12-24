@@ -1,6 +1,6 @@
 # app/staff.py
 
-from .schema import MenuSchema
+from .schema import MenuSchema, UpdateMenuItemSchema
 from fastapi.responses import JSONResponse
 from starlette import status
 from .firebase_init import db
@@ -171,3 +171,66 @@ async def get_menu(id_token: str):
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
       content={"message": str(e)}
     )
+
+async def update_menu_item(
+      item_id: str,
+      update_data: UpdateMenuItemSchema,
+      id_token: str
+  ):
+    try:
+      staff_data, staff_uid = await get_staff_details(id_token)
+
+      if not staff_data:
+        return JSONResponse(
+          status_code=status.HTTP_401_UNAUTHORIZED,
+          content={"message": "Invalid or expired token."}
+        )
+
+      staff_college_id = staff_data.get("college_id")
+      staff_stall_id = staff_data.get("stall_id")
+
+      item_ref = (
+        db.collection("colleges")
+        .document(staff_college_id)
+        .collection("stalls")
+        .document(staff_stall_id)
+        .collection("menu_items")
+        .document(item_id)
+      )
+
+      item_doc = item_ref.get()
+      if not item_doc.exists:
+        return JSONResponse(
+          status_code=status.HTTP_404_NOT_FOUND,
+          content={"message": "Menu item not found."}
+        )
+
+      updates = {
+        key: value
+        for key, value in update_data.model_dump().items()
+        if value is not None
+      }
+
+      if not updates:
+        return JSONResponse(
+          status_code=status.HTTP_400_BAD_REQUEST,
+          content={"message": "No valid fields provided for update."}
+        )
+
+      updates["updated_at"] = firestore.SERVER_TIMESTAMP
+
+      item_ref.update(updates)
+
+      return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+          "message": "Menu item updated successfully",
+          "item_id": item_id
+        }
+      )
+
+    except Exception as e:
+      return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": str(e)}
+      )

@@ -1,7 +1,7 @@
 # app/schema.py
 
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 
 class SignUpSchema(BaseModel):
@@ -32,3 +32,11 @@ class MenuItemSchema(BaseModel):
 class MenuSchema(BaseModel):
     stall_id: str
     items: List[MenuItemSchema]
+
+
+class UpdateMenuItemSchema(BaseModel):
+  name: Optional[str] = None
+  price: Optional[float] = None
+  description: Optional[str] = None
+  is_available: Optional[bool] = None
+
