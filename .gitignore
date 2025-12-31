@@ -4,3 +4,4 @@ __pycache__/
 serviceAccountKey.json
 .env
 .DS_Store
+get_token.py

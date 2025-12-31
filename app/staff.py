@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import json
 import google.generativeai as genai
 from fastapi import UploadFile
-from .schema import MenuSchema, UpdateMenuItemSchema
+from .schema import MenuSchema, UpdateMenuItemSchema, AddStaffSchema
 from fastapi.responses import JSONResponse
 from starlette import status
 from .firebase_init import db
@@ -15,34 +15,34 @@ from datetime import datetime
 load_dotenv()
 
 if os.environ.get("GEMINI_API_KEY"):
-    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+  genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 async def get_staff_details(id_token: str):
-    try:
-        decoded_token = auth.verify_id_token(id_token)
-        uid = decoded_token["uid"]
+  try:
+    decoded_token = auth.verify_id_token(id_token)
+    uid = decoded_token["uid"]
 
-        staff_doc = db.collection("staffs").document(uid).get()
-        if staff_doc.exists:
-            return staff_doc.to_dict(), uid
+    staff_doc = db.collection("staffs").document(uid).get()
+    if staff_doc.exists:
+      return staff_doc.to_dict(), uid
 
-        return None, None
+    return None, None
 
-    except auth.ExpiredIdTokenError:
-        print("Token expired")
-        return None, None
-    except auth.InvalidIdTokenError:
-        print("Invalid token")
-        return None, None
-    except Exception as e:
-        print(f"Auth Error: {e}")
-        return None, None
+  except auth.ExpiredIdTokenError:
+    print("Token expired")
+    return None, None
+  except auth.InvalidIdTokenError:
+    print("Invalid token")
+    return None, None
+  except Exception as e:
+    print(f"Auth Error: {e}")
+    return None, None
 
 def serialize_firestore_data(data: dict):
-    for key, value in data.items():
-        if isinstance(value, datetime):
-            data[key] = value.isoformat()
-    return data
+  for key, value in data.items():
+    if isinstance(value, datetime):
+      data[key] = value.isoformat()
+  return data
 
 def validate_extracted_items(items):
   if not isinstance(items, list):
@@ -60,15 +60,12 @@ def validate_extracted_items(items):
     if not name or not isinstance(name, str):
       continue
 
-    # Normalize price
     if price is not None and not isinstance(price, (int, float)):
       price = None
 
-    # Normalize description
     if not description or not isinstance(description, str):
       description = ""
 
-    # Enforce 6–7 words max (safety)
     description_words = description.split()
     if len(description_words) > 7:
       description = " ".join(description_words[:7])
@@ -81,83 +78,125 @@ def validate_extracted_items(items):
 
   return validated
 
-async def upload_menu(menu_data: MenuSchema, id_token: str):
+async def add_staff_member(staff_data: AddStaffSchema, id_token: str):
+  try:
+    requester_data, requester_uid = await get_staff_details(id_token)
+
+    if not requester_data:
+      return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"message": "Invalid credentials"})
+
+    if requester_data.get("role") != "manager":
+      return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"message": "Only Managers can add staff."})
+
+    new_email = staff_data.email
+    stall_id = requester_data.get("stall_id")
+    college_id = requester_data.get("college_id")
+
+    existing_staff = db.collection("staffs").where("email", "==", new_email).limit(1).get()
+    if len(existing_staff) > 0:
+      return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": "User is already a staff member."})
+
     try:
-        staff_data, staff_uid = await get_staff_details(id_token)
+      user = auth.get_user_by_email(new_email)
+      new_uid = user.uid
+    except auth.UserNotFoundError:
+      user = auth.create_user(email=new_email)
+      new_uid = user.uid
 
-        if not staff_data:
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"message": "Invalid or expired token."}
-            )
+    db.collection("staffs").document(new_uid).set({
+      "email": new_email,
+      "stall_id": stall_id,
+      "college_id": college_id,
+      "role": "staff",
+      "added_by": requester_data.get("email"),
+      "created_at": firestore.SERVER_TIMESTAMP
+    })
 
-        if not menu_data.items:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={"message": "Menu items cannot be empty."}
-            )
+    return JSONResponse(
+      status_code=status.HTTP_201_CREATED,
+      content={"message": f"Staff {new_email} added successfully."}
+    )
 
-        staff_college_id = staff_data.get("college_id")
-        staff_stall_id = staff_data.get("stall_id")
+  except Exception as e:
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(e)})
 
-        if staff_stall_id != menu_data.stall_id:
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content={
-                    "message": f"Unauthorized. You can only manage stall: {staff_stall_id}"
-                }
-            )
+async def upload_menu(menu_data: MenuSchema, id_token: str):
+  try:
+    staff_data, staff_uid = await get_staff_details(id_token)
 
-        stall_ref = (
-            db.collection("colleges")
-            .document(staff_college_id)
-            .collection("stalls")
-            .document(staff_stall_id)
-        )
+    if not staff_data:
+      return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"message": "Invalid or expired token."}
+      )
 
-        if not stall_ref.get().exists:
-            return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
-                content={"message": "Stall not found. Contact admin."}
-            )
+    if not menu_data.items:
+      return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"message": "Menu items cannot be empty."}
+      )
 
-        menu_items_ref = stall_ref.collection("menu_items")
+    staff_college_id = staff_data.get("college_id")
+    staff_stall_id = staff_data.get("stall_id")
 
-        batch = db.batch()
+    if staff_stall_id != menu_data.stall_id:
+      return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={
+          "message": f"Unauthorized. You can only manage stall: {staff_stall_id}"
+        }
+      )
 
-        for item in menu_data.items:
-            item_ref = menu_items_ref.document()
-            batch.set(item_ref, {
-                **item.model_dump(),
-                "created_at": firestore.SERVER_TIMESTAMP,
-                "updated_at": firestore.SERVER_TIMESTAMP
-            })
+    stall_ref = (
+      db.collection("colleges")
+      .document(staff_college_id)
+      .collection("stalls")
+      .document(staff_stall_id)
+    )
 
-        batch.set(
-            stall_ref,
-            {
-                "last_updated_by": staff_uid,
-                "last_updated_at": firestore.SERVER_TIMESTAMP
-            },
-            merge=True
-        )
+    if not stall_ref.get().exists:
+      return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"message": "Stall not found. Contact admin."}
+      )
 
-        batch.commit()
+    menu_items_ref = stall_ref.collection("menu_items")
 
-        return JSONResponse(
-            status_code=status.HTTP_201_CREATED,
-            content={
-                "message": "Menu uploaded successfully",
-                "stall_id": staff_stall_id,
-                "items_added": len(menu_data.items)
-            }
-        )
+    batch = db.batch()
 
-    except Exception as e:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"message": str(e)}
-        )
+    for item in menu_data.items:
+      item_ref = menu_items_ref.document()
+      batch.set(item_ref, {
+        **item.model_dump(),
+        "created_at": firestore.SERVER_TIMESTAMP,
+        "updated_at": firestore.SERVER_TIMESTAMP
+      })
+
+    batch.set(
+      stall_ref,
+      {
+        "last_updated_by": staff_uid,
+        "last_updated_at": firestore.SERVER_TIMESTAMP
+      },
+      merge=True
+    )
+
+    batch.commit()
+
+    return JSONResponse(
+      status_code=status.HTTP_201_CREATED,
+      content={
+        "message": "Menu uploaded successfully",
+        "stall_id": staff_stall_id,
+        "items_added": len(menu_data.items)
+      }
+    )
+
+  except Exception as e:
+    return JSONResponse(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      content={"message": str(e)}
+    )
 
 async def get_menu(id_token: str):
   try:
@@ -215,67 +254,67 @@ async def get_menu(id_token: str):
     )
 
 async def update_menu_item(
-      item_id: str,
-      update_data: UpdateMenuItemSchema,
-      id_token: str
-  ):
-    try:
-      staff_data, staff_uid = await get_staff_details(id_token)
+    item_id: str,
+    update_data: UpdateMenuItemSchema,
+    id_token: str
+):
+  try:
+    staff_data, staff_uid = await get_staff_details(id_token)
 
-      if not staff_data:
-        return JSONResponse(
-          status_code=status.HTTP_401_UNAUTHORIZED,
-          content={"message": "Invalid or expired token."}
-        )
-
-      staff_college_id = staff_data.get("college_id")
-      staff_stall_id = staff_data.get("stall_id")
-
-      item_ref = (
-        db.collection("colleges")
-        .document(staff_college_id)
-        .collection("stalls")
-        .document(staff_stall_id)
-        .collection("menu_items")
-        .document(item_id)
+    if not staff_data:
+      return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"message": "Invalid or expired token."}
       )
 
-      item_doc = item_ref.get()
-      if not item_doc.exists:
-        return JSONResponse(
-          status_code=status.HTTP_404_NOT_FOUND,
-          content={"message": "Menu item not found."}
-        )
+    staff_college_id = staff_data.get("college_id")
+    staff_stall_id = staff_data.get("stall_id")
 
-      updates = {
-        key: value
-        for key, value in update_data.model_dump().items()
-        if value is not None
+    item_ref = (
+      db.collection("colleges")
+      .document(staff_college_id)
+      .collection("stalls")
+      .document(staff_stall_id)
+      .collection("menu_items")
+      .document(item_id)
+    )
+
+    item_doc = item_ref.get()
+    if not item_doc.exists:
+      return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"message": "Menu item not found."}
+      )
+
+    updates = {
+      key: value
+      for key, value in update_data.model_dump().items()
+      if value is not None
+    }
+
+    if not updates:
+      return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"message": "No valid fields provided for update."}
+      )
+
+    updates["updated_at"] = firestore.SERVER_TIMESTAMP
+
+    item_ref.update(updates)
+
+    return JSONResponse(
+      status_code=status.HTTP_200_OK,
+      content={
+        "message": "Menu item updated successfully",
+        "item_id": item_id
       }
+    )
 
-      if not updates:
-        return JSONResponse(
-          status_code=status.HTTP_400_BAD_REQUEST,
-          content={"message": "No valid fields provided for update."}
-        )
-
-      updates["updated_at"] = firestore.SERVER_TIMESTAMP
-
-      item_ref.update(updates)
-
-      return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={
-          "message": "Menu item updated successfully",
-          "item_id": item_id
-        }
-      )
-
-    except Exception as e:
-      return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"message": str(e)}
-      )
+  except Exception as e:
+    return JSONResponse(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      content={"message": str(e)}
+    )
 
 async def delete_menu_item(item_id: str, id_token: str):
   try:
@@ -322,7 +361,6 @@ async def delete_menu_item(item_id: str, id_token: str):
     )
 
 def _extract_menu_from_image(image_bytes: bytes, mime_type: str) -> list:
-
   if not os.environ.get("GEMINI_API_KEY"):
     raise Exception("GEMINI_API_KEY is missing from environment variables!")
 
@@ -416,3 +454,110 @@ async def scan_menu_image(file: UploadFile, id_token: str):
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
       content={"message": f"Internal Server Error: {str(e)}"}
     )
+
+async def get_my_staff(id_token: str):
+  try:
+    requester_data, _ = await get_staff_details(id_token)
+    if not requester_data or requester_data.get("role") != "manager":
+      return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"message": "Access denied."})
+
+    stall_id = requester_data.get("stall_id")
+
+    staff_query = db.collection("staffs").where("stall_id", "==", stall_id).stream()
+
+    staff_list = []
+    for doc in staff_query:
+      data = doc.to_dict()
+      if data.get("role") == "manager":
+        continue
+
+      staff_list.append({
+        "uid": doc.id,
+        "email": data.get("email"),
+        "role": data.get("role"),
+        "added_at": data.get("created_at")
+      })
+
+    staff_list = [serialize_firestore_data(s) for s in staff_list]
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"staff": staff_list})
+
+  except Exception as e:
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(e)})
+
+
+async def remove_staff_member(target_uid: str, id_token: str):
+  try:
+    requester_data, _ = await get_staff_details(id_token)
+    if not requester_data or requester_data.get("role") != "manager":
+      return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"message": "Access denied."})
+
+    target_ref = db.collection("staffs").document(target_uid)
+    target_doc = target_ref.get()
+
+    if not target_doc.exists:
+      return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Staff member not found."})
+
+    target_data = target_doc.to_dict()
+
+    if target_data.get("stall_id") != requester_data.get("stall_id"):
+      return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"message": "You cannot remove staff from other stalls."})
+
+    if target_data.get("role") == "manager":
+      return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": "You cannot remove a Manager."})
+
+    target_ref.delete()
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Staff member removed successfully."})
+
+  except Exception as e:
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(e)})
+
+
+async def update_staff_email(target_uid: str, new_email: str, id_token: str):
+  try:
+    requester_data, _ = await get_staff_details(id_token)
+    if not requester_data or requester_data.get("role") != "manager":
+      return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"message": "Access denied."})
+
+    old_ref = db.collection("staffs").document(target_uid)
+    old_doc = old_ref.get()
+
+    if not old_doc.exists:
+      return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Staff member not found."})
+
+    old_data = old_doc.to_dict()
+
+    if old_data.get("stall_id") != requester_data.get("stall_id"):
+      return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"message": "Unauthorized."})
+    if old_data.get("role") == "manager":
+      return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": "Cannot change Manager email here."})
+
+    try:
+      user = auth.get_user_by_email(new_email)
+      new_uid = user.uid
+    except auth.UserNotFoundError:
+      user = auth.create_user(email=new_email)
+      new_uid = user.uid
+
+    if db.collection("staffs").document(new_uid).get().exists:
+      return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": "New email is already a staff member."})
+
+    batch = db.batch()
+
+    new_ref = db.collection("staffs").document(new_uid)
+
+    new_data = old_data.copy()
+    new_data["email"] = new_email
+    new_data["updated_by"] = requester_data.get("email")
+    new_data["updated_at"] = firestore.SERVER_TIMESTAMP
+
+    batch.set(new_ref, new_data)
+    batch.delete(old_ref)
+
+    batch.commit()
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"message": f"Staff email updated to {new_email}."})
+
+  except Exception as e:
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(e)})

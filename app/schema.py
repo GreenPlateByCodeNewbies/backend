@@ -8,20 +8,26 @@ class SignUpSchema(BaseModel):
     password: str
     confirm_password: str
 
-class StaffSignUpSchema(BaseModel):
+class AddStaffSchema(BaseModel):
     email: str
-    password: str
-    confirm_password: str
+
+class StaffAuthResponse(BaseModel):
+    message: str
+    role: str
     stall_id: str
+    college_id: str
 
 class LoginSchema(BaseModel):
     email: str
     password: str
 
+class UpdateStaffEmailSchema(BaseModel):
+    new_email: str
+
 class MenuItemSchema(BaseModel):
     name: str
     price: float = Field(..., gt=0)
-    description: str | None = None
+    description: Optional[str] = None
     is_available: bool = True
 
 class MenuSchema(BaseModel):
