@@ -23,14 +23,20 @@ from .staff import (
   update_menu_item,
   delete_menu_item,
   add_staff_member,
+)
+from .manager import (
   get_my_staff,
   remove_staff_member,
-  update_staff_email
+  update_staff_email,
 )
 from .user import get_user_menu
 
 app = FastAPI()
 security = HTTPBearer()
+
+@app.post('/auth/verify-staff', tags=["verify"])
+async def verify_staff(credentials: HTTPAuthorizationCredentials = Security(security)):
+    return await verify_staff_access(credentials.credentials)
 
 @app.post('/signup/users', tags=["user"])
 async def signup_users(user_data: SignUpSchema):
@@ -46,31 +52,27 @@ async def get_student_menu_endpoint(
 ):
     return await get_user_menu(credentials.credentials)
 
-@app.post('/auth/verify-staff', tags=["staff"])
-async def verify_staff(credentials: HTTPAuthorizationCredentials = Security(security)):
-    return await verify_staff_access(credentials.credentials)
-
-@app.post('/staff/add-member', tags=["staff"])
+@app.post('/staff/add-member', tags=["manager"])
 async def add_staff_endpoint(
     staff_data: AddStaffSchema,
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await add_staff_member(staff_data, credentials.credentials)
 
-@app.get('/staff/list', tags=["staff"])
+@app.get('/staff/list', tags=["manager"])
 async def get_staff_list_endpoint(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await get_my_staff(credentials.credentials)
 
-@app.delete('/staff/{staff_uid}', tags=["staff"])
+@app.delete('/staff/{staff_uid}', tags=["manager"])
 async def remove_staff_endpoint(
     staff_uid: str,
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await remove_staff_member(staff_uid, credentials.credentials)
 
-@app.put('/staff/{staff_uid}/email', tags=["staff"])
+@app.put('/staff/{staff_uid}/email', tags=["manager"])
 async def update_staff_email_endpoint(
     staff_uid: str,
     update_data: UpdateStaffEmailSchema,
@@ -78,7 +80,7 @@ async def update_staff_email_endpoint(
 ):
     return await update_staff_email(staff_uid, update_data.new_email, credentials.credentials)
 
-@app.post("/staff/menu", tags=["staff"])
+@app.post("/staff/menu", tags=["staff", "manager"])
 async def upload_menu_endpoint(
     menu_data: MenuSchema,
     credentials: HTTPAuthorizationCredentials = Security(security)
@@ -86,14 +88,14 @@ async def upload_menu_endpoint(
     token = credentials.credentials
     return await upload_menu(menu_data, token)
 
-@app.get("/staff/menu", tags=["staff"])
+@app.get("/staff/menu", tags=["staff", "manager"])
 async def get_staff_menu(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     token = credentials.credentials
     return await get_menu(token)
 
-@app.post("/staff/menu/scan-image", tags=["staff"], response_model=MenuScanResponse)
+@app.post("/staff/menu/scan-image", tags=["staff", "manager"], response_model=MenuScanResponse)
 async def scan_menu_endpoint(
     file: UploadFile = File(...),
     credentials: HTTPAuthorizationCredentials = Security(security)
@@ -101,7 +103,7 @@ async def scan_menu_endpoint(
     token = credentials.credentials
     return await scan_menu_image(file, token)
 
-@app.patch("/staff/menu/{item_id}", tags=["staff"])
+@app.patch("/staff/menu/{item_id}", tags=["staff", "manager"])
 async def update_menu_item_endpoint(
     item_id: str,
     update_data: UpdateMenuItemSchema,
@@ -113,7 +115,7 @@ async def update_menu_item_endpoint(
         credentials.credentials
     )
 
-@app.delete("/staff/menu/{item_id}", tags=["staff"])
+@app.delete("/staff/menu/{item_id}", tags=["staff", "manager"])
 async def delete_menu_item_endpoint(
     item_id: str,
     credentials: HTTPAuthorizationCredentials = Security(security)
