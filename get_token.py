@@ -15,7 +15,7 @@ def get_test_token(email, password):
         "password": password,
         "returnSecureToken": True
     }
-    response = requests.post(url, json=payload)
+    response = requests.post(url, json=payload, timeout=(3, 10))
     if response.status_code == 200:
         token = response.json()['idToken']
         print("\n✅ SUCCESS! Here is your Bearer Token for Swagger:\n")

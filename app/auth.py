@@ -128,7 +128,6 @@ async def verify_staff_access(token: str):
       break
 
     if found_stall:
-      stall_data = found_stall.to_dict()
 
       new_staff_data = {
         "email": email,
