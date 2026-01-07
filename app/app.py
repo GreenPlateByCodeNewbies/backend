@@ -1,5 +1,6 @@
 # app/app.py
 
+import os
 from fastapi import FastAPI, Security, File, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from .schema import (
@@ -33,6 +34,14 @@ from .user import get_user_menu
 
 app = FastAPI()
 security = HTTPBearer()
+
+@app.get("/health", tags=["health"])
+def health_check():
+    return {
+        "status": "ok",
+        "service": "greenplate-backend",
+        "environment": os.getenv("ENV", "development")
+    }
 
 @app.post('/auth/verify-staff', tags=["verify"])
 async def verify_staff(credentials: HTTPAuthorizationCredentials = Security(security)):

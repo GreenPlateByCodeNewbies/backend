@@ -29,7 +29,7 @@ You can run the app with Docker (image build + run) or with the provided compose
 
 ```bash
 # build image (from repo root where Dockerfile is located)
-docker build -t backend .
+docker build .
 
 # run container (map port 8000). Replace paths/env as needed.
 # -v mounts the Firebase service account (if you use a file)
@@ -44,10 +44,10 @@ docker run --rm -p 8000:8000 \
 
 ```bash
 # build and start in background
-docker compose -f compose.yaml up --build -d
+docker compose up --build
 
 # stop and remove containers
-docker compose -f compose.yaml down
+docker compose down --build
 ```
 
 Notes:
