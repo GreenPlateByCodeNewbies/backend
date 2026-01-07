@@ -16,12 +16,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image
         run: |
-          docker build .
+          docker build -t greenplate-backend .
 
       - name: Run container (sanity check)
         run: |
           docker run -d -p 8000:8000 \
             -e FIREBASE_SERVICE_ACCOUNT=/dev/null \
-            backend
+            greenplate-backend
