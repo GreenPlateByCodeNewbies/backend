@@ -1,10 +1,13 @@
 # app/auth.py
 
+import os, requests
 from .schema import LoginSchema, SignUpSchema
 from fastapi.responses import JSONResponse
 from starlette import status
 from firebase_admin import auth, firestore
-from .firebase_init import db, firebase
+from .firebase_init import db
+
+FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 
 def _create_response(status_code: int, message: str, **kwargs):
   content = {"message": message}
@@ -78,14 +81,27 @@ async def auth_login_users(user_data: LoginSchema):
     )
 
   try:
-    user = firebase.auth().sign_in_with_email_and_password(email, password)
-    return _create_response(
-      status.HTTP_200_OK,
-      "Login successful",
-      idToken=user["idToken"],
-    )
+    request_url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
+    payload = {
+      "email": email,
+      "password": password,
+      "returnSecureToken": True
+    }
+    response = requests.post(request_url, json=payload)
+    response_data = response.json()
+
+    if response.status_code == 200:
+      return _create_response(
+        status.HTTP_200_OK,
+        "Login successful",
+        idToken=response_data["idToken"],
+      )
+    else:
+      error_msg = response_data.get("error", {}).get("message", "Login failed")
+      return _create_response(status.HTTP_401_UNAUTHORIZED, error_msg)
+
   except Exception as e:
-    return _create_response(status.HTTP_401_UNAUTHORIZED, str(e))
+    return _create_response(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
 
 async def verify_staff_access(token: str):
   try:
