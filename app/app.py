@@ -2,7 +2,6 @@
 
 import os
 from fastapi import FastAPI, Security, File, UploadFile
-#newly added for the cors problem 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from .schema import (
@@ -35,7 +34,6 @@ from .manager import (
 from .user import get_user_menu
 
 app = FastAPI()
-# app/app.py
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,6 +46,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 security = HTTPBearer()
 
 @app.get("/health", tags=["health"])
