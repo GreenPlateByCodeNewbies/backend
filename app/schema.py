@@ -42,3 +42,11 @@ class MenuScanResponse(BaseModel):
     detected_items: List[ExtractedMenuItem]
     count: int
     message: str = "Scan complete. Please verify items before saving."
+
+class CartItemSchema(BaseModel):
+  item_id: str
+  quantity: int = Field(..., gt=0)
+
+class CreateOrderSchema(BaseModel):
+  stall_id: str
+  items: List[CartItemSchema]

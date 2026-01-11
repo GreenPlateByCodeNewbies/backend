@@ -9,7 +9,8 @@ from .schema import (
   AddStaffSchema,
   UpdateStaffEmailSchema,
   UpdateMenuItemSchema,
-  MenuScanResponse
+  MenuScanResponse,
+  CreateOrderSchema
 )
 from .auth import (
   authenticate_student,
@@ -28,7 +29,8 @@ from .manager import (
   remove_staff_member,
   update_staff_email,
 )
-from .user import get_user_menu
+from .user import get_user_menu, create_payment_order
+from .webhook import router as webhook_router
 
 app = FastAPI()
 
@@ -44,6 +46,8 @@ app.add_middleware(
 )
 
 security = HTTPBearer()
+
+app.include_router(webhook_router)
 
 @app.get("/health", tags=["health"])
 def health_check():
@@ -66,6 +70,13 @@ async def get_student_menu_endpoint(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await get_user_menu(credentials.credentials)
+
+@app.post("/user/order/create", tags=["user"])
+async def create_order_endpoint(
+    order_data: CreateOrderSchema,
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    return await create_payment_order(order_data, credentials.credentials)
 
 @app.post('/staff/add-member', tags=["manager"])
 async def add_staff_endpoint(
