@@ -50,6 +50,7 @@ pyparsing==3.2.5
 python-dotenv==1.2.1
 python-jwt==4.1.0
 python-multipart==0.0.21
+razorpay==2.0.0
 requests==2.32.5
 requests-toolbelt==0.10.1
 rsa==4.9.1
@@ -60,5 +61,5 @@ tqdm==4.67.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uritemplate==4.2.0
-urllib3==2.6.3
+urllib3==1.26.20
 uvicorn==0.40.0
