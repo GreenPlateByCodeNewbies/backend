@@ -1,5 +1,4 @@
-# app/app.py
-
+ # app/app.py 
 import os
 from fastapi import FastAPI, Security, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,6 +38,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5000",
         "http://127.0.0.1:5000",
+        "http://localhost:3000",   
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
