@@ -35,6 +35,46 @@ def serialize_firestore_data(data: dict):
     return data
 
 
+#to update the orders
+async def verify_payment_and_create_order(payment_data: dict, id_token: str):
+    try:
+        user_data, user_uid = await get_user_details(id_token)
+        if not user_data:
+            return JSONResponse(status_code=401, content={"message": "Unauthorized"})
+
+        # 1. Verify Razorpay Signature
+        params_dict = {
+            'razorpay_order_id': payment_data['razorpay_order_id'],
+            'razorpay_payment_id': payment_data['razorpay_payment_id'],
+            'razorpay_signature': payment_data['razorpay_signature']
+        }
+        
+        try:
+            razorpay_client.utility.verify_payment_signature(params_dict)
+        except Exception:
+            return JSONResponse(status_code=400, content={"message": "Payment verification failed"})
+
+        # 2. Save to Firestore 'orders' collection
+        order_doc_ref = db.collection("orders").document()
+        order_payload = {
+            "user_id": user_uid,
+            "stall_id": payment_data['stall_id'],
+            "items": payment_data['items'], # List of dicts
+            "total_amount": payment_data['amount'],
+            "razorpay_order_id": payment_data['razorpay_order_id'],
+            "razorpay_payment_id": payment_data['razorpay_payment_id'],
+            "status": "PAID",
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP
+        }
+        
+        order_doc_ref.set(order_payload)
+        
+        return JSONResponse(status_code=201, content={"message": "Order placed successfully", "order_id": order_doc_ref.id})
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"message": str(e)})
+
 async def get_user_menu(id_token: str):
     try:
         user_data, user_uid = await get_user_details(id_token)
