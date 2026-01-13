@@ -1,4 +1,5 @@
- # app/app.py 
+ # app/app.py
+
 import os
 from fastapi import FastAPI, Security, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +32,7 @@ from .manager import (
   remove_staff_member,
   update_staff_email,
 )
-from .user import get_user_menu, create_payment_order
+from .user import get_user_menu, create_payment_order, get_user_orders
 from .webhook import router as webhook_router
 
 app = FastAPI()
@@ -81,6 +82,12 @@ async def create_order_endpoint(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await create_payment_order(order_data, credentials.credentials)
+
+@app.get("/user/orders", tags=["user"])
+async def get_student_orders_endpoint(
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    return await get_user_orders(credentials.credentials)
 
 @app.post('/staff/add-member', tags=["manager"])
 async def add_staff_endpoint(

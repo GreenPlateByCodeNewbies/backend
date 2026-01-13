@@ -211,3 +211,47 @@ async def create_payment_order(order_data: CreateOrderSchema, id_token: str):
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
       content={"message": f"Payment Error: {str(e)}"}
     )
+
+
+async def get_user_orders(id_token: str):
+  try:
+    user_data, user_uid = await get_user_details(id_token)
+    if not user_data:
+      return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"message": "Invalid or expired token."}
+      )
+
+    orders_ref = (
+      db.collection("orders")
+      .where("user_id", "==", user_uid)
+      .order_by("created_at", direction=firestore.Query.DESCENDING)
+    )
+
+    docs = orders_ref.stream()
+
+    my_orders = []
+    for doc in docs:
+      data = doc.to_dict()
+      data['order_id'] = doc.id
+
+      data = serialize_firestore_data(data)
+
+      data.pop("razorpay_payment_data", None)
+      data.pop("internal_order_id", None)
+
+      my_orders.append(data)
+
+    return JSONResponse(
+      status_code=status.HTTP_200_OK,
+      content={
+        "count": len(my_orders),
+        "orders": my_orders
+      }
+    )
+
+  except Exception as e:
+    return JSONResponse(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      content={"message": str(e)}
+    )
