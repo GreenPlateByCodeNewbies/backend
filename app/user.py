@@ -4,7 +4,7 @@ import os
 import razorpay
 from fastapi.responses import JSONResponse
 from starlette import status
-from firebase_admin import auth, firestore
+from firebase_admin import auth
 from .firebase_init import db
 from datetime import datetime
 from .schema import CreateOrderSchema
@@ -15,60 +15,18 @@ razorpay_client = razorpay.Client(auth=(
 ))
 
 async def get_user_details(id_token: str):
-  """
-  Verify Firebase ID token and get/create user in Firestore
-  """
   try:
-    # Verify Firebase token
     decoded_token = auth.verify_id_token(id_token)
     uid = decoded_token["uid"]
-    email = decoded_token.get("email", "")
 
-    # Check if user exists in Firestore
     user_doc = db.collection("users").document(uid).get()
-    
     if user_doc.exists:
-      print(f"✅ User {email} found in Firestore")
       return user_doc.to_dict(), uid
 
-    # ✅ AUTO-CREATE USER IF DOESN'T EXIST
-    print(f"⚠️ User {email} not found in Firestore, creating profile...")
-    
-    # Extract college_id from email domain
-    # Example: jeet.sarkar.cse.2024@tint.edu.in → tint
-    college_id = "default_college"
-    college_name = "Default College"
-    
-    if "@" in email:
-      domain_parts = email.split("@")[1].split(".")
-      if len(domain_parts) >= 2:
-        college_id = domain_parts[0]  # Gets 'tint' from 'tint.edu.in'
-        college_name = college_id.upper()  # Simple mapping
-    
-    # Create new user document
-    new_user_data = {
-      "uid": uid,
-      "email": email,
-      "college_id": college_id,
-      "college_name": college_name,
-      "role": "student",
-      "created_at": firestore.SERVER_TIMESTAMP
-    }
-    
-    # Save to Firestore
-    db.collection("users").document(uid).set(new_user_data)
-    print(f"✅ Created user profile for {email} with college_id: {college_id}")
-    
-    # Return the created user data (without SERVER_TIMESTAMP for immediate use)
-    new_user_data["created_at"] = datetime.utcnow()
-    return new_user_data, uid
-
-  except Exception as e:
-    print(f"❌ Error in get_user_details: {e}")
-    import traceback
-    traceback.print_exc()
     return None, None
 
+  except Exception:
+    return None, None
 
 def serialize_firestore_data(data: dict):
     for k, v in data.items():
