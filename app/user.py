@@ -319,32 +319,29 @@ async def get_user_orders(id_token: str):
         content={"message": "Invalid or expired token."}
       )
 
-    orders_ref = (
-      db.collection("orders")
-      .where("user_id", "==", user_uid)
-      .order_by("created_at", direction=firestore.Query.DESCENDING)
+    docs = (
+       db.collection("orders")
+       .where("user_id","==",user_uid)
+       .order_by("created_at",direction=firestore.Query.DESCENDING)
+       .stream()
     )
 
-    docs = orders_ref.stream()
-
-    my_orders = []
+    orders = []
     for doc in docs:
       data = doc.to_dict()
-      data['order_id'] = doc.id
 
-      data = serialize_firestore_data(data)
+      orders.append({
+         "id": doc.id,
+         "items": data["items"],  # ✅ FIXED: Added missing comma
+         "cafeteriaName": data.get("stall_id", "Unknown Stall"),  # ✅ FIXED: Added .get() for safety
+         "status": normalize_order_status(data["status"]),
+         "qrCode": doc.id[:6].upper()
+      })
 
-      data.pop("razorpay_payment_data", None)
-      data.pop("internal_order_id", None)
-
-      my_orders.append(data)
-
+      
     return JSONResponse(
       status_code=status.HTTP_200_OK,
-      content={
-        "count": len(my_orders),
-        "orders": my_orders
-      }
+      content=orders
     )
 
   except Exception as e:
@@ -352,3 +349,12 @@ async def get_user_orders(id_token: str):
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
       content={"message": str(e)}
     )
+
+def normalize_order_status(status:str):
+   return{
+      "PENDING": "Reserved",
+      "PAID": "Reserved",
+      "CLAIMED": "Claimed",
+      "READY": "Ready",
+      "COMPLETED": "Completed"
+   }.get(status,"Reserved")
