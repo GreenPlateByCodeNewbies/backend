@@ -1,4 +1,5 @@
  # app/app.py
+print("🔥 NEW APP.PY LOADED 🔥")
 
 import os
 from fastapi import FastAPI, Security, File, UploadFile
@@ -25,7 +26,9 @@ from .staff import (
   delete_menu_item,
   add_staff_member,
   get_stall_orders,
-  update_order_status_staff
+  update_order_status_staff,
+  get_my_staff_profile,
+  get_staff_me
 )
 from .manager import (
   get_my_staff,
@@ -118,6 +121,13 @@ async def remove_staff_endpoint(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await remove_staff_member(staff_uid, credentials.credentials)
+
+@app.get("/staff/me", tags=["staff", "manager"])
+async def get_staff_me_endpoint(
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    return await get_staff_me(credentials.credentials)
+
 
 @app.put('/staff/{staff_uid}/email', tags=["manager"])
 async def update_staff_email_endpoint(

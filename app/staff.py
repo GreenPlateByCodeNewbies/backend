@@ -24,7 +24,12 @@ async def get_staff_details(id_token: str):
 
     staff_doc = db.collection("staffs").document(uid).get()
     if staff_doc.exists:
-      return staff_doc.to_dict(), uid
+      data = staff_doc.to_dict()
+
+      if data.get("status", "").strip() != "active":
+        return None, None
+      
+      return data,uid
 
     return None, None
 
@@ -85,40 +90,84 @@ async def add_staff_member(staff_data: AddStaffSchema, id_token: str):
     if not requester_data:
       return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"message": "Invalid credentials"})
 
-    if requester_data.get("role") != "manager":
+    if requester_data["role"] != "manager":
       return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"message": "Only Managers can add staff."})
 
-    new_email = staff_data.email
-    stall_id = requester_data.get("stall_id")
-    college_id = requester_data.get("college_id")
+    email = staff_data.email.lower()
+    stall_id = requester_data["stall_id"]
+    college_id = requester_data["college_id"]
 
-    existing_staff = db.collection("staffs").where("email", "==", new_email).limit(1).get()
-    if len(existing_staff) > 0:
-      return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": "User is already a staff member."})
+    existing = db.collection("staffs").where("email", "==", email).limit(1).get()
+    if existing:
+      doc = existing[0]
+      if doc.to_dict().get("status") == "active":
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": "User is already a staff member."})
 
     try:
-      user = auth.get_user_by_email(new_email)
-      new_uid = user.uid
+      user = auth.get_user_by_email(email)
     except auth.UserNotFoundError:
-      user = auth.create_user(email=new_email)
-      new_uid = user.uid
+      user = auth.create_user(email=email)
 
-    db.collection("staffs").document(new_uid).set({
-      "email": new_email,
+    reset_link = auth.generate_password_reset_link(email)
+
+    db.collection("staffs").document(user.uid).set({
+      "email": email,
       "stall_id": stall_id,
       "college_id": college_id,
       "role": "staff",
-      "added_by": requester_data.get("email"),
+      "status":"active",
+      "added_by": requester_data["email"],
       "created_at": firestore.SERVER_TIMESTAMP
     })
-
     return JSONResponse(
       status_code=status.HTTP_201_CREATED,
-      content={"message": f"Staff {new_email} added successfully."}
+      content={"message": f"Staff {email} added successfully.",
+                "reset_link": reset_link 
+              }
     )
 
   except Exception as e:
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(e)})
+  
+async def get_my_staff_profile(id_token:str):
+  staff_data, uid = await get_staff_details(id_token)
+
+  if not staff_data:
+    return JSONResponse(
+      status_code=status.HTTP_401_UNAUTHORIZED,
+      content={"message":"Unauthorized"}
+    )
+  return JSONResponse(
+    status_code=status.HTTP_200_OK,
+    content={
+      "uid":uid,
+      "email":staff_data["email"],
+      "role":staff_data["role"],
+      "stall_id":staff_data["stall_id"],
+      "college_id":staff_data["college_id"]
+    }
+  )
+
+async def get_staff_me(id_token: str):
+    staff_data, staff_uid = await get_staff_details(id_token)
+
+    if not staff_data:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"message": "Unauthorized"}
+        )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "uid": staff_uid,
+            "email": staff_data.get("email"),
+            "role": staff_data.get("role"),
+            "stall_id": staff_data.get("stall_id"),
+            "college_id": staff_data.get("college_id"),
+        }
+    )
+
 
 async def upload_menu(menu_data: MenuSchema, id_token: str):
   try:

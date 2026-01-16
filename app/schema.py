@@ -1,10 +1,10 @@
 # app/schema.py
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 
 class AddStaffSchema(BaseModel):
-    email: str
+    email: EmailStr
 
 class StaffAuthResponse(BaseModel):
     message: str

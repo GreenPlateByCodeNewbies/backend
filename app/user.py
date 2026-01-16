@@ -109,28 +109,6 @@ async def verify_payment_and_update_order(payment_data: dict, id_token: str):
             content={"message": str(e)}
         )
 
-    
-
-    #     # 2. Save to Firestore 'orders' collection
-    #     order_doc_ref = db.collection("orders").document()
-    #     order_payload = {
-    #         "user_id": user_uid,
-    #         "stall_id": payment_data['stall_id'],
-    #         "items": payment_data['items'], # List of dicts
-    #         "total_amount": payment_data['amount'],
-    #         "razorpay_order_id": payment_data['razorpay_order_id'],
-    #         "razorpay_payment_id": payment_data['razorpay_payment_id'],
-    #         "status": "PAID",
-    #         "created_at": firestore.SERVER_TIMESTAMP,
-    #         "updated_at": firestore.SERVER_TIMESTAMP
-    #     }
-        
-    #     order_doc_ref.set(order_payload)
-        
-    #     return JSONResponse(status_code=201, content={"message": "Order placed successfully", "order_id": order_doc_ref.id})
-
-    # except Exception as e:
-    #     return JSONResponse(status_code=500, content={"message": str(e)})
 
 async def get_user_menu(id_token: str):
     try:
