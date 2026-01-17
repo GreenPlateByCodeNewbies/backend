@@ -1,5 +1,4 @@
  # app/app.py
-print("🔥 NEW APP.PY LOADED 🔥")
 
 import os
 from fastapi import FastAPI, Security, File, UploadFile
@@ -12,7 +11,10 @@ from .schema import (
   UpdateMenuItemSchema,
   MenuScanResponse,
   CreateOrderSchema,
-  UpdateOrderStatusSchema
+  UpdateOrderStatusSchema,
+  UpdateUserProfileSchema,
+  VerifyPickupSchema,
+  VerifyPaymentSchema
 )
 from .auth import (
   authenticate_student,
@@ -28,14 +30,21 @@ from .staff import (
   get_stall_orders,
   update_order_status_staff,
   get_my_staff_profile,
-  get_staff_me
+  get_staff_me,
+  verify_order_pickup
 )
 from .manager import (
   get_my_staff,
   remove_staff_member,
   update_staff_email,
 )
-from .user import get_user_menu, create_payment_order, get_user_orders,verify_payment_and_update_order
+from .user import (
+  get_user_menu,
+  create_payment_order,
+  get_user_orders,
+  verify_payment_and_update_order,
+  update_user_profile
+)
 from .webhook import router as webhook_router
 
 app = FastAPI()
@@ -73,6 +82,13 @@ async def verify_staff_endpoint(credentials: HTTPAuthorizationCredentials = Secu
 async def verify_student_endpoint(credentials: HTTPAuthorizationCredentials = Security(security)):
     return await authenticate_student(credentials.credentials)
 
+@app.patch("/user/profile", tags=["user"])
+async def update_profile_endpoint(
+    profile_data: UpdateUserProfileSchema,
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    return await update_user_profile(profile_data, credentials.credentials)
+
 @app.get("/user/menu", tags=["user"])
 async def get_student_menu_endpoint(
     credentials: HTTPAuthorizationCredentials = Security(security)
@@ -94,13 +110,10 @@ async def get_student_orders_endpoint(
 
 @app.post("/user/order/verify",tags=["user"])
 async def verify_order_endpoint(
-    payment_data: dict,
+    payment_data: VerifyPaymentSchema,
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
-    return await verify_payment_and_update_order(
-        payment_data,
-        credentials.credentials
-    )
+    return await verify_payment_and_update_order( payment_data, credentials.credentials )
 
 @app.post('/staff/add-member', tags=["manager"])
 async def add_staff_endpoint(
@@ -122,13 +135,6 @@ async def remove_staff_endpoint(
 ):
     return await remove_staff_member(staff_uid, credentials.credentials)
 
-@app.get("/staff/me", tags=["staff", "manager"])
-async def get_staff_me_endpoint(
-    credentials: HTTPAuthorizationCredentials = Security(security)
-):
-    return await get_staff_me(credentials.credentials)
-
-
 @app.put('/staff/{staff_uid}/email', tags=["manager"])
 async def update_staff_email_endpoint(
     staff_uid: str,
@@ -136,6 +142,12 @@ async def update_staff_email_endpoint(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await update_staff_email(staff_uid, update_data.new_email, credentials.credentials)
+
+@app.get("/staff/me", tags=["staff", "manager"])
+async def get_staff_me_endpoint(
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    return await get_staff_me(credentials.credentials)
 
 @app.post("/staff/menu", tags=["staff", "manager"])
 async def upload_menu_endpoint(
@@ -196,3 +208,10 @@ async def update_order_status_endpoint(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await update_order_status_staff(order_id, status_data, credentials.credentials)
+
+@app.post("/staff/orders/verify-pickup", tags=["staff", "manager"])
+async def verify_pickup_endpoint(
+    verify_data: VerifyPickupSchema,
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    return await verify_order_pickup(verify_data, credentials.credentials)

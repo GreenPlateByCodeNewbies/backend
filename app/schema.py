@@ -15,6 +15,11 @@ class StaffAuthResponse(BaseModel):
 class UpdateStaffEmailSchema(BaseModel):
     new_email: str
 
+class UpdateUserProfileSchema(BaseModel):
+  name: str = Field(..., min_length=2)
+  roll_number: str = Field(..., min_length=1)
+  phone: Optional[str] = None
+
 class MenuItemSchema(BaseModel):
     name: str
     price: float = Field(..., gt=0)
@@ -31,17 +36,15 @@ class UpdateMenuItemSchema(BaseModel):
   description: Optional[str] = None
   is_available: Optional[bool] = None
 
-
 class ExtractedMenuItem(BaseModel):
   name: str = Field(..., description="The name of the food item")
   price: Optional[float] = Field(None, description="The price of the item")
   description: str = Field("", description="Short AI-generated description (6–7 words)")
 
-
 class MenuScanResponse(BaseModel):
-    detected_items: List[ExtractedMenuItem]
-    count: int
-    message: str = "Scan complete. Please verify items before saving."
+  detected_items: List[ExtractedMenuItem]
+  count: int
+  message: str = "Scan complete. Please verify items before saving."
 
 class CartItemSchema(BaseModel):
   item_id: str
@@ -66,3 +69,13 @@ class OrderResponseSchema(BaseModel):
 
 class UpdateOrderStatusSchema(BaseModel):
   status: str
+
+class VerifyPaymentSchema(BaseModel):
+  razorpay_order_id: str
+  razorpay_payment_id: str
+  razorpay_signature: str
+  internal_order_id: str
+
+class VerifyPickupSchema(BaseModel):
+  order_id: str
+  pickup_code: str = Field(..., min_length=4, max_length=4, description="4-digit pickup code")

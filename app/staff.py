@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import json
 import google.generativeai as genai
 from fastapi import UploadFile
-from .schema import MenuSchema, UpdateMenuItemSchema, AddStaffSchema, UpdateOrderStatusSchema
+from .schema import MenuSchema, UpdateMenuItemSchema, AddStaffSchema, UpdateOrderStatusSchema, VerifyPickupSchema
 from fastapi.responses import JSONResponse
 from starlette import status
 from .firebase_init import db
@@ -167,7 +167,6 @@ async def get_staff_me(id_token: str):
             "college_id": staff_data.get("college_id"),
         }
     )
-
 
 async def upload_menu(menu_data: MenuSchema, id_token: str):
   try:
@@ -578,6 +577,44 @@ async def update_order_status_staff(order_id: str, status_data: UpdateOrderStatu
     })
 
     return JSONResponse(status_code=status.HTTP_200_OK, content={"message": f"Order status updated to {status_data.status}"})
+
+  except Exception as e:
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(e)})
+
+async def verify_order_pickup(verify_data: VerifyPickupSchema, id_token: str):
+  try:
+    staff_data, _ = await get_staff_details(id_token)
+    if not staff_data:
+      return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"message": "Unauthorized"})
+
+    order_ref = db.collection("orders").document(verify_data.order_id)
+    order_doc = order_ref.get()
+
+    if not order_doc.exists:
+      return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Order not found"})
+
+    data = order_doc.to_dict()
+
+    if data.get("stall_id") != staff_data.get("stall_id"):
+      return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"message": "Wrong stall"})
+
+    if data.get("status") != "PAID":
+      return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": "Order is not PAID yet."})
+
+    stored_code = data.get("pickup_code")
+    if stored_code != verify_data.pickup_code:
+      return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": "Incorrect Pickup Code!"})
+
+    order_ref.update({
+      "status": "CLAIMED",
+      "picked_up_at": firestore.SERVER_TIMESTAMP,
+      "handled_by": staff_data.get("email")
+    })
+
+    return JSONResponse(
+      status_code=status.HTTP_200_OK,
+      content={"message": "Order verified and delivered!", "status": "CLAIMED"}
+    )
 
   except Exception as e:
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(e)})

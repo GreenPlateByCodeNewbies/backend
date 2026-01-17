@@ -1,13 +1,14 @@
 #app/user.py
 
 import os
+import random
 import razorpay
 from fastapi.responses import JSONResponse
 from starlette import status
 from firebase_admin import auth
 from .firebase_init import db, firestore
 from datetime import datetime
-from .schema import CreateOrderSchema
+from .schema import CreateOrderSchema, UpdateUserProfileSchema, VerifyPaymentSchema
 
 razorpay_client = razorpay.Client(auth=(
     os.environ.get("RAZORPAY_KEY_ID"),
@@ -34,68 +35,64 @@ def serialize_firestore_data(data: dict):
             data[k] = v.isoformat()
     return data
 
+async def update_user_profile(profile_data: UpdateUserProfileSchema, id_token: str):
+  try:
+    user_data, user_uid = await get_user_details(id_token)
 
-#to update the orders
-async def verify_payment_and_update_order(payment_data: dict, id_token: str):
+    if not user_data:
+      return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"message": "Unauthorized"})
+
+    user_ref = db.collection("users").document(user_uid)
+
+    user_ref.update({
+      "name": profile_data.name,
+      "roll_number": profile_data.roll_number,
+      "phone": profile_data.phone,
+      "updated_at": firestore.SERVER_TIMESTAMP
+    })
+
+    return JSONResponse(
+      status_code=status.HTTP_200_OK,
+      content={"message": "Profile updated successfully"}
+    )
+
+  except Exception as e:
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": str(e)})
+
+async def verify_payment_and_update_order(payment_data: VerifyPaymentSchema, id_token: str):
     try:
-        print("🔥 VERIFY CALLED")
-        print("🔥 PAYMENT DATA RECEIVED:", payment_data)
-
-        # 1️⃣ Check required fields
-        required_fields = [
-            "razorpay_order_id",
-            "razorpay_payment_id",
-            "razorpay_signature",
-            "internal_order_id"
-        ]
-
-        for field in required_fields:
-            if field not in payment_data:
-                print(f"❌ MISSING FIELD: {field}")
-                return JSONResponse(
-                    status_code=400,
-                    content={"message": f"Missing field: {field}"}
-                )
-
-        # 2️⃣ Verify Razorpay signature
         params_dict = {
-            "razorpay_order_id": payment_data["razorpay_order_id"],
-            "razorpay_payment_id": payment_data["razorpay_payment_id"],
-            "razorpay_signature": payment_data["razorpay_signature"],
+          "razorpay_order_id": payment_data.razorpay_order_id,
+          "razorpay_payment_id": payment_data.razorpay_payment_id,
+          "razorpay_signature": payment_data.razorpay_signature,
         }
-
         try:
             razorpay_client.utility.verify_payment_signature(params_dict)
-            print("✅ SIGNATURE VERIFIED")
         except Exception as e:
-            print("❌ SIGNATURE VERIFICATION FAILED:", str(e))
             return JSONResponse(
                 status_code=400,
                 content={"message": "Signature verification failed"}
             )
 
-        # 3️⃣ Find order in Firestore
-        internal_order_id = payment_data["internal_order_id"]
-        print("🔍 LOOKING FOR ORDER:", internal_order_id)
+        internal_order_id = payment_data.internal_order_id
 
         order_ref = db.collection("orders").document(internal_order_id)
         order_doc = order_ref.get()
 
         if not order_doc.exists:
-            print("❌ ORDER NOT FOUND IN FIRESTORE")
             return JSONResponse(
                 status_code=400,
                 content={"message": "Order not found"}
             )
 
-        # 4️⃣ Update order
+        pickup_code = str(random.randint(1000, 9999))
+
         order_ref.update({
-            "razorpay_payment_id": payment_data["razorpay_payment_id"],
+            "razorpay_payment_id": payment_data.razorpay_payment_id,
             "status": "PAID",
+          "pickup_code": pickup_code,
             "updated_at": firestore.SERVER_TIMESTAMP
         })
-
-        print("🎉 ORDER UPDATED TO PAID")
 
         return JSONResponse(
             status_code=200,
@@ -103,12 +100,10 @@ async def verify_payment_and_update_order(payment_data: dict, id_token: str):
         )
 
     except Exception as e:
-        print("🔥 UNEXPECTED ERROR:", str(e))
         return JSONResponse(
             status_code=400,
             content={"message": str(e)}
         )
-
 
 async def get_user_menu(id_token: str):
     try:
@@ -178,7 +173,6 @@ async def get_user_menu(id_token: str):
             content={"message": str(e)}
         )
 
-
 async def create_payment_order(order_data: CreateOrderSchema, id_token: str):
   try:
     user_data, user_uid = await get_user_details(id_token)
@@ -237,11 +231,18 @@ async def create_payment_order(order_data: CreateOrderSchema, id_token: str):
         content={"message": "Invalid order total."}
       )
 
+    user_snapshot = {
+      "name": user_data.get("name", "Unknown Student"),
+      "roll_number": user_data.get("roll_number", "N/A"),
+      "phone": user_data.get("phone", "")
+    }
+
     new_order_ref = db.collection('orders').document()
     internal_order_id = new_order_ref.id
 
     firestore_order_data = {
       "user_id": user_uid,
+      "user_details": user_snapshot,
       "stall_id": stall_id,
       "college_id": college_id,
       "items": order_items,
@@ -287,7 +288,6 @@ async def create_payment_order(order_data: CreateOrderSchema, id_token: str):
       content={"message": f"Payment Error: {str(e)}"}
     )
 
-
 async def get_user_orders(id_token: str):
   try:
     user_data, user_uid = await get_user_details(id_token)
@@ -308,14 +308,16 @@ async def get_user_orders(id_token: str):
     for doc in docs:
       data = doc.to_dict()
 
+      visible_code = data.get("pickup_code") if data.get("status") in ["PAID", "READY"] else None
+
       orders.append({
          "id": doc.id,
-         "items": data["items"],  # ✅ FIXED: Added missing comma
-         "cafeteriaName": data.get("stall_id", "Unknown Stall"),  # ✅ FIXED: Added .get() for safety
+         "items": data["items"],
+         "cafeteriaName": data.get("stall_id", "Unknown Stall"),
          "status": normalize_order_status(data["status"]),
-         "qrCode": doc.id[:6].upper()
+         "qrCode": visible_code,
+        "total_amount": data.get("total_amount", 0)
       })
-
       
     return JSONResponse(
       status_code=status.HTTP_200_OK,
@@ -330,9 +332,9 @@ async def get_user_orders(id_token: str):
 
 def normalize_order_status(status:str):
    return{
-      "PENDING": "Reserved",
+      "PENDING": "Payment Pending",
       "PAID": "Reserved",
       "CLAIMED": "Claimed",
       "READY": "Ready",
       "COMPLETED": "Completed"
-   }.get(status,"Reserved")
+   }.get(status,"Unknown")
