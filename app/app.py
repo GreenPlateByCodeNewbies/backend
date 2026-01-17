@@ -31,7 +31,8 @@ from .staff import (
   update_order_status_staff,
   get_my_staff_profile,
   get_staff_me,
-  verify_order_pickup
+  verify_order_pickup,
+  activate_staff
 )
 from .manager import (
   get_my_staff,
@@ -121,6 +122,12 @@ async def add_staff_endpoint(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ):
     return await add_staff_member(staff_data, credentials.credentials)
+
+@app.post("/staff/activate",tags=["staff"])
+async def activate_staff_endpoint(
+    credentials:HTTPAuthorizationCredentials = Security(security)
+):
+    return await activate_staff(credentials.credentials)
 
 @app.get('/staff/list', tags=["manager"])
 async def get_staff_list_endpoint(

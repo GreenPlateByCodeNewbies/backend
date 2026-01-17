@@ -64,4 +64,5 @@ uritemplate==4.2.0
 urllib3==2.6.3
 uvicorn==0.40.0
 email-validator
+sendgrid
 

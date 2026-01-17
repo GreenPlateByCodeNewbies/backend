@@ -11,6 +11,8 @@ from starlette import status
 from .firebase_init import db
 from firebase_admin import auth, firestore
 from datetime import datetime
+from .mailer import send_staff_password_setup_email
+from firebase_admin.auth import ActionCodeSettings
 
 load_dotenv()
 
@@ -108,21 +110,29 @@ async def add_staff_member(staff_data: AddStaffSchema, id_token: str):
     except auth.UserNotFoundError:
       user = auth.create_user(email=email)
 
-    reset_link = auth.generate_password_reset_link(email)
+    action_settings = ActionCodeSettings(
+        url=os.getenv("FRONTEND_BASE_URL") + "/set-password",
+        handle_code_in_app=True
+    )
+    reset_link = auth.generate_password_reset_link(
+      email,
+      action_settings
+    )
+
+    send_staff_password_setup_email(email, reset_link)
 
     db.collection("staffs").document(user.uid).set({
       "email": email,
       "stall_id": stall_id,
       "college_id": college_id,
       "role": "staff",
-      "status":"active",
+      "status":"inactive",
       "added_by": requester_data["email"],
       "created_at": firestore.SERVER_TIMESTAMP
     })
     return JSONResponse(
       status_code=status.HTTP_201_CREATED,
-      content={"message": f"Staff {email} added successfully.",
-                "reset_link": reset_link 
+      content={"message": f"Staff {email} added successfully."
               }
     )
 
@@ -167,6 +177,26 @@ async def get_staff_me(id_token: str):
             "college_id": staff_data.get("college_id"),
         }
     )
+
+async def activate_staff(id_token: str):
+  decoded = auth.verify_id_token(id_token)
+  uid = decoded["uid"]
+
+  ref = db.collection("staffs").document(uid)
+  doc = ref.get()
+
+  if not doc.exists:
+    return JSONResponse(status_code=404, content={"message": "Staff not found"})
+  
+  if doc.to_dict().get("status") == "active":
+    return JSONResponse(status_code=200,content={"message": "Already active"})
+  
+  ref.update({
+    "status":"active",
+    "activated_at": firestore.SERVER_TIMESTAMP
+  })
+
+  return JSONResponse(status_code=200,content={"message": "Staff activated"})
 
 async def upload_menu(menu_data: MenuSchema, id_token: str):
   try:
