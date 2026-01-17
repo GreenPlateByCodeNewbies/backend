@@ -60,7 +60,7 @@ async def razorpay_webhook(request: Request):
 
         transaction.update(order_ref, {
           "status": "PAID",
-          "payment_id": payment_id,
+          "razorpay_payment_id": payment_id,
           "razorpay_payment_data": payment,
           "pickup_code": pickup_code,
           "updated_at": firestore.SERVER_TIMESTAMP
@@ -73,6 +73,6 @@ async def razorpay_webhook(request: Request):
         print(f"❌ Transaction failed: {e}")
 
     else:
-      print(f"⚠️ Payment received without internal_order_id: {payment['id']}")
+      print(f"⚠️ Payment received without internal_order_id: {payment.get('id')}")
 
   return {"status": "ok"}
