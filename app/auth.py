@@ -103,8 +103,6 @@ async def verify_staff_access(token: str):
         status.HTTP_200_OK,
         "Verified",
         role=data.get("role"),
-        stall_id=data.get("stall_id"),
-        college_id=data.get("college_id")
       )
 
     college_id, _ = _get_college_by_domain(email)
@@ -141,8 +139,6 @@ async def verify_staff_access(token: str):
         status.HTTP_200_OK,
         "Manager account initialized",
         role="manager",
-        stall_id=found_stall.id,
-        college_id=college_id
       )
 
     return _create_response(

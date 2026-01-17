@@ -1,15 +1,14 @@
-
 # app/webhook.py
 
 import os
 import hmac
 import hashlib
+import random
 from fastapi import APIRouter, Request, HTTPException
 from firebase_admin import firestore
 from .firebase_init import db
 
 router = APIRouter()
-
 
 @router.post("/webhook/razorpay", tags=["webhook"])
 async def razorpay_webhook(request: Request):
@@ -41,13 +40,38 @@ async def razorpay_webhook(request: Request):
 
     if internal_order_id:
       order_ref = db.collection('orders').document(internal_order_id)
-      order_ref.update({
-        "status": "PAID",
-        "payment_id": payment_id,
-        "razorpay_payment_data": payment,
-        "updated_at": firestore.SERVER_TIMESTAMP
-      })
-      print(f"✅ Order {internal_order_id} marked as PAID")
+
+      transaction = db.transaction()
+
+      @firestore.transactional
+      def update_in_transaction(transaction, order_ref):
+        snapshot = order_ref.get(transaction=transaction)
+        if not snapshot.exists:
+          print(f"❌ Order {internal_order_id} not found!")
+          return
+
+        current_data = snapshot.to_dict()
+
+        if current_data.get("status") == "PAID":
+          print(f"ℹ️ Order {internal_order_id} was already PAID. Skipping update.")
+          return
+
+        pickup_code = str(random.randint(1000, 9999))
+
+        transaction.update(order_ref, {
+          "status": "PAID",
+          "payment_id": payment_id,
+          "razorpay_payment_data": payment,
+          "pickup_code": pickup_code,
+          "updated_at": firestore.SERVER_TIMESTAMP
+        })
+        print(f"✅ SUCCESS: Generated Pickup Code {pickup_code} for Order {internal_order_id}")
+
+      try:
+        update_in_transaction(transaction, order_ref)
+      except Exception as e:
+        print(f"❌ Transaction failed: {e}")
+
     else:
       print(f"⚠️ Payment received without internal_order_id: {payment['id']}")
 
