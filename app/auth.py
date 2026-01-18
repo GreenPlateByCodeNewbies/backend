@@ -27,29 +27,51 @@ def _get_college_by_domain(email: str):
     print(f"College lookup error: {e}")
     return None, None
 
-async def authenticate_student(token: str):
 
+async def authenticate_student(token: str):
   try:
     try:
       decoded = auth.verify_id_token(token)
     except Exception:
-      return _create_response(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+      return _create_response(
+        status.HTTP_401_UNAUTHORIZED,
+        "Invalid or expired token"
+      )
 
-    uid = decoded["uid"]
+    uid = decoded.get("uid")
     email = decoded.get("email")
 
-    if not email:
-      return _create_response(status.HTTP_400_BAD_REQUEST, "Invalid token: Email required.")
+    if not uid or not email:
+      return _create_response(
+        status.HTTP_400_BAD_REQUEST,
+        "Invalid token payload"
+      )
 
-    user_doc_ref = db.collection("users").document(uid)
-    user_doc = user_doc_ref.get()
+    staff_doc = db.collection("staffs").document(uid).get()
+    if staff_doc.exists:
+      return _create_response(
+        status.HTTP_403_FORBIDDEN,
+        "Staff accounts are not authorized to access student login."
+      )
+
+    user_ref = db.collection("users").document(uid)
+    user_doc = user_ref.get()
 
     if user_doc.exists:
+      user_data = user_doc.to_dict()
+      role = user_data.get("role")
+
+      if role != "student":
+        return _create_response(
+          status.HTTP_403_FORBIDDEN,
+          "Not authorized as student."
+        )
+
       return _create_response(
         status.HTTP_200_OK,
         "Login successful",
         role="student",
-        college_id=user_doc.to_dict().get("college_id")
+        college_id=user_data.get("college_id")
       )
 
     college_id, college_data = _get_college_by_domain(email)
@@ -57,14 +79,18 @@ async def authenticate_student(token: str):
     if not college_id:
       try:
         auth.delete_user(uid)
-      except:
-        pass
+      except Exception:
+        return _create_response(
+          status.HTTP_500_INTERNAL_SERVER_ERROR,
+          "College domain not registered and failed to delete unregistered user."
+        )
+
       return _create_response(
         status.HTTP_403_FORBIDDEN,
-        "Your college domain is not registered with GreenPlate.",
+        "Your college domain is not registered with GreenPlate."
       )
 
-    user_doc_ref.set({
+    user_ref.set({
       "email": email,
       "college_id": college_id,
       "college_name": college_data.get("name"),
@@ -80,7 +106,10 @@ async def authenticate_student(token: str):
     )
 
   except Exception as e:
-    return _create_response(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+    return _create_response(
+      status.HTTP_500_INTERNAL_SERVER_ERROR,
+      "Internal server error"
+    )
 
 async def verify_staff_access(token: str):
   try:
