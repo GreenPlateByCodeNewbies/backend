@@ -9,7 +9,6 @@ from firebase_admin import auth
 from .firebase_init import db, firestore
 from datetime import datetime, timedelta
 from .schema import CreateOrderSchema, UpdateUserProfileSchema, VerifyPaymentSchema
-from google.cloud.firestore_v1.transaction import Transaction
 
 razorpay_client = razorpay.Client(auth=(
     os.environ.get("RAZORPAY_KEY_ID"),
