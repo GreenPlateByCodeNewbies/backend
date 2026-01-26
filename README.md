@@ -145,6 +145,16 @@ Authorization: Bearer <idToken>
 3. uvicorn app.app:app --reload --host 0.0.0.0 --port 8000
 4. Use Swagger or a REST client. Authorize with `Authorization: Bearer <idToken>`.
 
+# capacitor setup in backend
+        "http://localhost",
+        "capacitor://localhost",
+        "http://10.0.2.2:3000",
+        "http://10.0.2.2:5000",
+        "http://10.0.2.2:8000",
+
+        to your app/app.py
+
+
 ### License
 - See LICENSE in repo root.
 
