@@ -24,8 +24,6 @@ async def get_my_staff(id_token: str):
     staff_list = []
     for doc in staff_query:
       data = doc.to_dict()
-      # if data.get("role") == "manager":
-      #   continue
 
       staff_list.append({
         "uid": doc.id,

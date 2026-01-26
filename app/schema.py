@@ -104,3 +104,15 @@ class StallPerformanceResponse(BaseModel):
     stall_id: str
     period: str
     staff_stats: List[StaffStats]
+
+class ResaleItemSchema(BaseModel):
+  resale_id: str
+  items: List[dict]
+  original_price: float
+  discounted_price: float
+  stall_name: str
+  status: str
+
+class CancelOrderResponse(BaseModel):
+  message: str
+  resale_created: bool = False
