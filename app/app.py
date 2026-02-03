@@ -33,6 +33,10 @@ from .user import (
 from .webhook import router as webhook_router
 
 def rate_limit_key(request: Request):
+  """
+    Generate a rate limiting key.
+    Uses Authorization token when available, otherwise falls back to IP address.
+  """
   auth_header = request.headers.get("authorization")
 
   if auth_header:
@@ -76,11 +80,15 @@ security = HTTPBearer()
 @app.get("/health", tags=["health"])
 @limiter.limit("10/minute")
 def health_check(request: Request):
-    return {
-        "status": "ok",
-        "service": "greenplate-backend",
-        "environment": os.getenv("ENV", "development")
-    }
+  """
+    Health check endpoint for monitoring service availability.
+  """
+  _ = request
+  return {
+      "status": "ok",
+      "service": "greenplate-backend",
+      "environment": os.getenv("ENV", "development")
+  }
 
 app.include_router(webhook_router)
 
