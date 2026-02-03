@@ -1,6 +1,7 @@
 # app/app.py
 
 import os
+import hashlib
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -32,7 +33,17 @@ from .user import (
 from .webhook import router as webhook_router
 
 def rate_limit_key(request: Request):
-  return request.headers.get("x-forwarded-for", request.client.host)
+  auth_header = request.headers.get("authorization")
+
+  if auth_header:
+    token_hash = hashlib.sha256(auth_header.encode()).hexdigest()
+    return f"user:{token_hash}"
+
+  forwarded = request.headers.get("x-forwarded-for")
+  if forwarded:
+    return f"ip:{forwarded.split(',')[0].strip()}"
+
+  return f"ip:{request.client.host}"
 
 limiter = Limiter(key_func=rate_limit_key)
 
