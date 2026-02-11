@@ -77,7 +77,7 @@ app.add_middleware(
 
 security = HTTPBearer()
 
-@app.get("/health", tags=["health"])
+@app.get("/v1/health", tags=["health"])
 @limiter.limit("10/minute")
 def health_check(request: Request):
   """
@@ -92,7 +92,7 @@ def health_check(request: Request):
 
 app.include_router(webhook_router)
 
-@app.post('/auth/verify-staff', tags=["auth"])
+@app.post("/v1/auth/verify-staff", tags=["auth"])
 @limiter.limit("5/minute")
 async def verify_staff_endpoint(
     request: Request,
@@ -100,7 +100,7 @@ async def verify_staff_endpoint(
 ):
     return await verify_staff_access(credentials.credentials)
 
-@app.post('/auth/verify-student', tags=["auth"])
+@app.post("/v1/auth/verify-student", tags=["auth"])
 @limiter.limit("5/minute")
 async def verify_student_endpoint(
     request: Request,
@@ -108,7 +108,7 @@ async def verify_student_endpoint(
 ):
     return await authenticate_student(credentials.credentials)
 
-@app.patch("/user/profile", tags=["user"])
+@app.patch("/v1/user/profile", tags=["user"])
 @limiter.limit("10/minute")
 async def update_profile_endpoint(
     request: Request,
@@ -117,7 +117,7 @@ async def update_profile_endpoint(
 ):
     return await update_user_profile(profile_data, credentials.credentials)
 
-@app.get("/user/menu", tags=["user"])
+@app.get("/v1/user/menu", tags=["user"])
 @limiter.limit("30/minute")
 async def get_student_menu_endpoint(
     request: Request,
@@ -125,7 +125,7 @@ async def get_student_menu_endpoint(
 ):
     return await get_user_menu(credentials.credentials)
 
-@app.get("/user/feed/discounted", tags=["user"])
+@app.get("/v1/user/feed/discounted", tags=["user"])
 @limiter.limit("30/minute")
 async def get_discounted_feed_endpoint(
     request: Request,
@@ -133,7 +133,7 @@ async def get_discounted_feed_endpoint(
 ):
     return await get_discounted_feed(credentials.credentials)
 
-@app.post("/user/order/create", tags=["user"])
+@app.post("/v1/user/order/create", tags=["user"])
 @limiter.limit("5/minute")
 async def create_order_endpoint(
     request: Request,
@@ -142,7 +142,7 @@ async def create_order_endpoint(
 ):
     return await create_payment_order(order_data, credentials.credentials)
 
-@app.get("/user/orders", tags=["user"])
+@app.get("/v1/user/orders", tags=["user"])
 @limiter.limit("20/minute")
 async def get_student_orders_endpoint(
     request: Request,
@@ -150,7 +150,7 @@ async def get_student_orders_endpoint(
 ):
     return await get_user_orders(credentials.credentials)
 
-@app.post("/user/order/verify",tags=["user"])
+@app.post("/v1/user/order/verify",tags=["user"])
 @limiter.limit("5/minute")
 async def verify_order_endpoint(
     request: Request,
@@ -159,7 +159,7 @@ async def verify_order_endpoint(
 ):
     return await verify_payment_and_update_order( payment_data, credentials.credentials )
 
-@app.post("/user/order/{order_id}/cancel", tags=["user"])
+@app.post("/v1/user/order/{order_id}/cancel", tags=["user"])
 @limiter.limit("5/minute")
 async def cancel_order_endpoint(
     request: Request,
@@ -168,7 +168,7 @@ async def cancel_order_endpoint(
 ):
     return await cancel_order(order_id, credentials.credentials)
 
-@app.post("/user/resale/{resale_id}/buy", tags=["user"])
+@app.post("/v1/user/resale/{resale_id}/buy", tags=["user"])
 @limiter.limit("10/minute") # Prevent race-condition spamming on hot items
 async def buy_resale_item_endpoint(
     request: Request,
@@ -177,7 +177,7 @@ async def buy_resale_item_endpoint(
 ):
     return await buy_resale_item(resale_id, credentials.credentials)
 
-@app.get("/staff/performance/overview", tags=["manager"])
+@app.get("/v1/staff/performance/overview", tags=["manager"])
 @limiter.limit("10/minute")
 async def get_stall_performance_overview_endpoint(
     request: Request,
@@ -187,7 +187,7 @@ async def get_stall_performance_overview_endpoint(
 ):
     return await get_stall_performance_overview(month, year, credentials.credentials)
 
-@app.post('/staff/add-member', tags=["manager"])
+@app.post("/v1/staff/add-member", tags=["manager"])
 @limiter.limit("5/minute")
 async def add_staff_endpoint(
     request: Request,
@@ -196,7 +196,7 @@ async def add_staff_endpoint(
 ):
     return await add_staff_member(staff_data, credentials.credentials)
 
-@app.get('/staff/list', tags=["manager"])
+@app.get("/v1/staff/list", tags=["manager"])
 @limiter.limit("20/minute")
 async def get_staff_list_endpoint(
     request: Request,
@@ -204,7 +204,7 @@ async def get_staff_list_endpoint(
 ):
     return await get_my_staff(credentials.credentials)
 
-@app.delete('/staff/{staff_uid}', tags=["manager"])
+@app.delete("/v1/staff/{staff_uid}", tags=["manager"])
 @limiter.limit("5/minute")
 async def remove_staff_endpoint(
     request: Request,
@@ -213,7 +213,7 @@ async def remove_staff_endpoint(
 ):
     return await remove_staff_member(staff_uid, credentials.credentials)
 
-@app.put('/staff/{staff_uid}/email', tags=["manager"])
+@app.put("/v1/staff/{staff_uid}/email", tags=["manager"])
 @limiter.limit("5/minute")
 async def update_staff_email_endpoint(
     request: Request,
@@ -223,7 +223,7 @@ async def update_staff_email_endpoint(
 ):
     return await update_staff_email(staff_uid, update_data.new_email, credentials.credentials)
 
-@app.post("/staff/activate",tags=["staff", "manager"])
+@app.post("/v1/staff/activate",tags=["staff", "manager"])
 @limiter.limit("5/minute")
 async def activate_staff_endpoint(
     request: Request,
@@ -231,7 +231,7 @@ async def activate_staff_endpoint(
 ):
     return await activate_staff(credentials.credentials)
 
-@app.get("/staff/me", tags=["staff", "manager"])
+@app.get("/v1/staff/me", tags=["staff", "manager"])
 @limiter.limit("20/minute")
 async def get_staff_me_endpoint(
     request: Request,
@@ -239,7 +239,7 @@ async def get_staff_me_endpoint(
 ):
     return await get_staff_me(credentials.credentials)
 
-@app.patch("/staff/profile", tags=["staff", "manager"])
+@app.patch("/v1/staff/profile", tags=["staff", "manager"])
 @limiter.limit("10/minute")
 async def update_staff_profile_endpoint(
     request: Request,
@@ -248,7 +248,7 @@ async def update_staff_profile_endpoint(
 ):
     return await update_staff_profile(profile_data, credentials.credentials)
 
-@app.post("/staff/menu", tags=["staff", "manager"])
+@app.post("/v1/staff/menu", tags=["staff", "manager"])
 @limiter.limit("5/minute")
 async def upload_menu_endpoint(
     request: Request,
@@ -257,7 +257,7 @@ async def upload_menu_endpoint(
 ):
     return await upload_menu(menu_data, credentials.credentials)
 
-@app.get("/staff/menu", tags=["staff", "manager"])
+@app.get("/v1/staff/menu", tags=["staff", "manager"])
 @limiter.limit("30/minute")
 async def get_staff_menu(
     request: Request,
@@ -265,7 +265,7 @@ async def get_staff_menu(
 ):
     return await get_menu(credentials.credentials)
 
-@app.post("/staff/menu/scan-image", tags=["staff", "manager"], response_model=MenuScanResponse)
+@app.post("/v1/staff/menu/scan-image", tags=["staff", "manager"], response_model=MenuScanResponse)
 @limiter.limit("5/minute")
 async def scan_menu_endpoint(
     request: Request,
@@ -274,7 +274,7 @@ async def scan_menu_endpoint(
 ):
     return await scan_menu_image(file, credentials.credentials)
 
-@app.patch("/staff/menu/{item_id}", tags=["staff", "manager"])
+@app.patch("/v1/staff/menu/{item_id}", tags=["staff", "manager"])
 @limiter.limit("20/minute")
 async def update_menu_item_endpoint(
     request: Request,
@@ -284,7 +284,7 @@ async def update_menu_item_endpoint(
 ):
     return await update_menu_item(item_id, update_data, credentials.credentials)
 
-@app.delete("/staff/menu/{item_id}", tags=["staff", "manager"])
+@app.delete("/v1/staff/menu/{item_id}", tags=["staff", "manager"])
 @limiter.limit("20/minute")
 async def delete_menu_item_endpoint(
     request: Request,
@@ -293,7 +293,7 @@ async def delete_menu_item_endpoint(
 ):
     return await delete_menu_item(item_id, credentials.credentials)
 
-@app.get("/staff/orders", tags=["staff", "manager"])
+@app.get("/v1/staff/orders", tags=["staff", "manager"])
 @limiter.limit("60/minute")
 async def get_staff_orders_endpoint(
     request: Request,
@@ -302,7 +302,7 @@ async def get_staff_orders_endpoint(
 ):
     return await get_stall_orders(credentials.credentials, status_filter=status)
 
-@app.patch("/staff/orders/{order_id}/status", tags=["staff", "manager"])
+@app.patch("/v1/staff/orders/{order_id}/status", tags=["staff", "manager"])
 @limiter.limit("30/minute")
 async def update_order_status_endpoint(
     request: Request,
@@ -312,7 +312,7 @@ async def update_order_status_endpoint(
 ):
     return await update_order_status_staff(order_id, status_data, credentials.credentials)
 
-@app.post("/staff/orders/verify-pickup", tags=["staff", "manager"])
+@app.post("/v1/staff/orders/verify-pickup", tags=["staff", "manager"])
 @limiter.limit("100/minute")
 async def verify_pickup_endpoint(
     request: Request,
@@ -321,7 +321,7 @@ async def verify_pickup_endpoint(
 ):
     return await verify_order_pickup(verify_data, credentials.credentials)
 
-@app.get("/staff/resale/items", tags=["staff"])
+@app.get("/v1/staff/resale/items", tags=["staff"])
 @limiter.limit("30/minute")
 async def get_staff_resale_items_endpoint(
     request: Request,
@@ -329,7 +329,7 @@ async def get_staff_resale_items_endpoint(
 ):
     return await get_stall_resale_items(credentials.credentials)
 
-@app.patch("/staff/resale/{resale_id}/price", tags=["staff"])
+@app.patch("/v1/staff/resale/{resale_id}/price", tags=["staff"])
 @limiter.limit("20/minute")
 async def update_resale_price_endpoint(
     request: Request,
