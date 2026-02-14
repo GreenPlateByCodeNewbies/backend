@@ -51,7 +51,7 @@ def rate_limit_key(request: Request):
 
 limiter = Limiter(key_func=rate_limit_key)
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

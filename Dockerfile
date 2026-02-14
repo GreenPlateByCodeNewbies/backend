@@ -1,54 +1,58 @@
-#Dockerfile
-
 # syntax=docker/dockerfile:1
 
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Dockerfile reference guide at
-# https://docs.docker.com/go/dockerfile-reference/
+############################
+# 1️⃣ Base Image
+############################
+FROM python:3.12-slim AS base
 
-# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
-
-ARG PYTHON_VERSION=3.13.1
-FROM python:${PYTHON_VERSION}-slim AS base
-
-# Prevents Python from writing pyc files.
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Keeps Python from buffering stdout and stderr to avoid situations where
-# the application crashes without emitting any logs due to buffering.
-ENV PYTHONUNBUFFERED=1
+# Environment settings
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8080
 
 WORKDIR /app
 
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/go/dockerfile-user-best-practices/
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
+############################
+# 2️⃣ System Dependencies
+############################
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Download dependencies as a separate step to take advantage of Docker's caching.
-# Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
-# Leverage a bind mount to requirements.txt to avoid having to copy them into
-# into this layer.
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
+############################
+# 3️⃣ Install Python Dependencies
+############################
+COPY requirements.txt .
 
-# Switch to the non-privileged user to run the application.
-USER appuser
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copy the source code into the container.
+############################
+# 4️⃣ Create Non-Root User
+############################
+RUN addgroup --system appgroup && \
+    adduser --system --ingroup appgroup appuser
+
+############################
+# 5️⃣ Copy Application Code
+############################
 COPY . .
 
-# Expose the port that the application listens on.
-EXPOSE 8000
+############################
+# 6️⃣ Switch to Non-Root User
+############################
+USER appuser
 
-# Run the application.
-CMD ["uvicorn", "app.v1.app:app", "--host", "0.0.0.0", "--port", "8000"]
+############################
+# 7️⃣ Expose Cloud Run Port
+############################
+EXPOSE 8080
 
+############################
+# 8️⃣ Production Server Command
+############################
+CMD ["uvicorn", "app.v1.app:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8080", \
+     "--workers", "2"]
